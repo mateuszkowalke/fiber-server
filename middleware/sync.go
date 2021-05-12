@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mateuszkowalke/nozbe-tasks/database"
 	"github.com/mateuszkowalke/nozbe-tasks/models"
+	"github.com/mateuszkowalke/nozbe-tasks/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -52,20 +53,24 @@ type TaskApiResp struct {
 	Task     []TaskFromNozbe `json:"task"`
 }
 
-type Creds struct {
-	Email string `json:"email"`
-	Password string `json:"password"`
-}
-
 func GetFromNozbe(c *fiber.Ctx) error {
 
 	taskCollection := database.MI.DB.Collection(os.Getenv("TASKS_COLLECTION"))
 
-	sess, err := Store.Get(c)
+	sess, err := utils.Store.Get(c)
 	if err != nil {
 		log.Fatal(err)
 	}
-	credentials := Creds{sess.Get("email").(string), sess.Get("password").(string)}
+	email, ok := sess.Get("email").(string)
+	if !ok {
+		return c.Next()
+	}
+	password, ok := sess.Get("password").(string)
+	if !ok {
+		return c.Next()
+	}
+
+	credentials := models.Creds{email, password}
 	url := "https://webapp.nozbe.com/sync3/login/lang-pl/app_key-desktop_web/dev-WOjVt/version-3.19/sync_version-2.2"
 	jsonStr, err := json.Marshal(credentials)
 	if err != nil {
@@ -91,24 +96,24 @@ func GetFromNozbe(c *fiber.Ctx) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer res.Body.Close()
 	var apiRespBody TaskApiResp
 	json.NewDecoder(res.Body).Decode(&apiRespBody)
 
+	res.Body.Close()
 	var data []interface{}
-	noPriority := 0
 	for _, task := range apiRespBody.Task {
 		query := bson.D{{Key: "name", Value: task.Name}}
-		JSONData := &bson.D{}
-		err := taskCollection.FindOne(c.Context(), query).Decode(JSONData)
+		JSONData := bson.D{}
+		err := taskCollection.FindOne(c.Context(), query).Decode(&JSONData)
 		if task.Next && err != nil {
-			data = append(data, models.Task{Name: &task.Name, Priority: &noPriority})
+			data = append(data, models.Task{Name: task.Name, Priority: 0})
 		}
 	}
-
-	fmt.Print(data)
 	if len(data) > 0 {
-		taskCollection.InsertMany(c.Context(), data)
+		_, err := taskCollection.InsertMany(c.Context(), data)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	return c.Next()

@@ -1,4 +1,4 @@
-package middleware
+package utils
 
 import (
 	"github.com/gofiber/fiber/v2/middleware/session"

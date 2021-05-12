@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"log"
 	"os"
 	"time"
 
 	"github.com/mateuszkowalke/nozbe-tasks/database"
 	"github.com/mateuszkowalke/nozbe-tasks/models"
+	"github.com/mateuszkowalke/nozbe-tasks/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson"
@@ -15,6 +17,28 @@ import (
 
 func Main(c *fiber.Ctx) error {
 	return c.SendFile("front/build/index.html")
+}
+
+func Login(c *fiber.Ctx) error {
+	sess, err := utils.Store.Get(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var creds models.Creds
+
+	err = c.BodyParser(&creds)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sess.Set("email", creds.Email)
+	sess.Set("password", creds.Password)
+	sess.Save()
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+	})
+
 }
 
 func GetTasks(c *fiber.Ctx) error {
@@ -101,7 +125,7 @@ func NewTask(c *fiber.Ctx) error {
 		})
 	}
 
-	data.ID = nil
+	data.ID = ""
 	data.CreatedAt = time.Now()
 	data.UpdatedAt = time.Now()
 
@@ -157,15 +181,15 @@ func UpdateTask(c *fiber.Ctx) error {
 
 	var dataToUpdate bson.D
 
-	if data.Name != nil {
+	if data.Name != "" {
 		dataToUpdate = append(dataToUpdate, bson.E{Key: "name", Value: data.Name})
 	}
 
-	if data.Description != nil {
+	if data.Description != "" {
 		dataToUpdate = append(dataToUpdate, bson.E{Key: "description", Value: data.Description})
 	}
 
-	if data.Priority != nil {
+	if data.Priority != 0 {
 		dataToUpdate = append(dataToUpdate, bson.E{Key: "priority", Value: data.Priority})
 	}
 

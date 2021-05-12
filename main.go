@@ -4,12 +4,12 @@ import (
 	"log"
 
 	"github.com/mateuszkowalke/nozbe-tasks/database"
-	"github.com/mateuszkowalke/nozbe-tasks/routes"
 	"github.com/mateuszkowalke/nozbe-tasks/middleware"
+	"github.com/mateuszkowalke/nozbe-tasks/routes"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-		
+
 	"github.com/joho/godotenv"
 )
 
@@ -27,7 +27,7 @@ func main() {
 
 	app.Static("static", "front/dist")
 
-	app.Use("/", middleware.GetFromNozbe)
+	app.Use("/api", middleware.GetFromNozbe)
 
 	routes.SetupRoutes(app)
 
